@@ -18,9 +18,12 @@ class XMLSerializer(Serializer):
 
 
 class JSONSerializer(Serializer):
-    def __init__(self, models=None):
-        if models:
-            functions.register_models(models)
+    def __init__(self, func):
+        """
+        :param func: an instance of ModelFunction
+        :type func: ModelFunction
+        """
+        self.__func__ = func
 
     def serialize_model(self, model, detail=False):
         """
@@ -44,7 +47,7 @@ class JSONSerializer(Serializer):
 
         def __mapper__(model):
             return {model.__name__: [
-                __mapper__(child) if detail else child.__name__ for child, p in functions.get_child_models(model)]}
+                __mapper__(child) if detail else child.__name__ for child, p in self.__func__.get_child_models(model)]}
 
         return json.dumps(__mapper__(model))
 
@@ -77,7 +80,7 @@ class JSONSerializer(Serializer):
         return _deserialize(__mapper__)
 
     def _get_model(self, model_name, default=None):
-        for model in functions.get_registered_models():
+        for model in self.__func__.registered_models:
             if model.__name__ == model_name:
                 return model
         else:
@@ -88,12 +91,15 @@ if __name__ == "__main__":
     import types
     from lite_mms.basemain import app, db
     from lite_mms import models
+    from functions import ModelFunction
 
+    func = ModelFunction(db.session)
     model_list = []
     for k, v in models.__dict__.items():
         if isinstance(v, types.TypeType) and issubclass(v, db.Model):
             model_list.append(v)
-    serializer = JSONSerializer(model_list)
+    func.registered_models = model_list
+    serializer = JSONSerializer(func)
     # print serializer.serialize_model(models.Order, True)
     print serializer.deserialize_model(
         '{"Order": [{"SubOrder": [{"WorkCommand": [{"QIReport": [{"StoreBill": []}]}, {"QIReport": [{"StoreBill": ['
