@@ -1,9 +1,11 @@
 #-*- coding:utf-8 -*-
+import types
 from functools import wraps
 
 __models__ = []
 __session__ = None
 __test_delete_funcs__ = {}
+__model_mapper__ = {}
 
 MUST = 1
 SHOULD = 2
@@ -30,23 +32,33 @@ def register_model(model):
         __models__.append(model)
 
 
+def get_registered_models():
+    return __models__
+
+
 @_raise_when_models_empty
-def get_child_models(obj):
+def get_child_models(class_):
     """
     只能是one to many的， 相同的model只返回一次
+    :param class_: the model class
+    :type class_: types.TypeType
+    :return a list of model class
     """
-    for loop in __models__:
-        if loop != obj.__class__:
-            for pro in loop.__mapper__.iterate_properties:
-                if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
-                                pro.local_remote_pairs[0][1] in obj.__table__.columns._all_cols:
-                    yield loop, pro
-                    break
+    assert isinstance(class_, types.TypeType) and hasattr(class_, "_sa_class_manager")
+    if class_ not in __model_mapper__:
+        __model_mapper__[class_] = []
+        for loop in __models__:
+            if loop != class_:
+                for pro in loop.__mapper__.iterate_properties:
+                    if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
+                                    pro.local_remote_pairs[0][1] in class_.__table__.columns._all_cols:
+                        __model_mapper__[class_].append((loop, pro))
+    return __model_mapper__[class_]
 
 
 @_raise_when_models_empty
 def get_children_generate(obj):
-    for model, pro in get_child_models(obj):
+    for model, pro in get_child_models(obj.__class__):
         for i in get_session(obj).query(model).filter(pro.class_attribute == obj):
             yield i
 
@@ -58,10 +70,7 @@ def get_children(obj):
 
 @_raise_when_models_empty
 def get_all_derivatives(obj):
-    l = []
-    for child in get_children_generate(obj):
-        l.append({child: get_all_derivatives(child)})
-    return l
+    return [{child: get_all_derivatives(child)} for child in get_children_generate(obj)]
 
 
 def set_session(session):
@@ -111,7 +120,7 @@ def test_delete(obj):
 
 def register_test_delete_func(class_):
     """
-    @class_name : 这里应该是具体的class类
+    @:param class_: 这里应该是具体的class类
     """
 
     def decorate(func):
@@ -137,7 +146,6 @@ def delete(obj):
 
 
 if __name__ == "__main__":
-    import types
     from lite_mms.basemain import app, db
     from lite_mms import models
 
@@ -148,4 +156,4 @@ if __name__ == "__main__":
             register_model(v)
     set_session(session=db.session)
     print get_children(order)
-    print get_child_models(order)
+    print get_child_models(models.Order)
