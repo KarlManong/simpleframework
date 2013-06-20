@@ -1,6 +1,4 @@
 #-*- coding:utf-8 -*-
-import functions
-
 try:
     import simplejson as json
 except ImportError:
