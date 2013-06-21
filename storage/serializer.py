@@ -55,7 +55,7 @@ class JSONSerializer(Serializer):
         """
         for e.g.:
             '{"Order": [{"SubOrder": [{"WorkCommand": [{"QIReport": [{"StoreBill": []}]}, {"Deduction": []}]}}'
-            will be analysed to Order -> [SubOrder], SubOrder->[WorkCommand]...
+            will be analysed to Order -> [SubOrder, property1, 1], SubOrder->[WorkCommand, property2, 3]...
         """
         __mapper__ = json.loads(string)
 
@@ -77,23 +77,17 @@ class JSONSerializer(Serializer):
                             result[k_model].append(i_model)
             return result
 
-        # self.__func__.model_mapper_dict = _deserialize(__mapper__) 这样的话，对应的Property不知道
         def _get_property(parent_class, child_class):
             for pro in child_class.__mapper__.iterate_properties:
                 if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
                                 pro.local_remote_pairs[0][1] in parent_class.__table__.columns._all_cols:
-                    constraint = constants.MAY
-                    if not pro.local_remote_pairs[0][0].nullable:
-                        constraint = constants.SHOULD
-                    return child_class, pro, constraint
+                    return child_class, pro, constants.MAY if pro.local_remote_pairs[0][
+                        0].nullable else constants.SHOULD
             else:
                 raise ValueError(u"关联错误%s: %s" % (parent_class.__name__, child_class.__name__))
 
-        self.__func__.model_mapper_dict = {}
-        for k, v in _deserialize(__mapper__).iteritems():
-            self.__func__.model_mapper_dict[k] = []
-            for i in v:
-                self.__func__.model_mapper_dict[k].append(_get_property(k, i))
+        self.__func__.model_mapper_dict = dict(
+            [(k, [_get_property(k, i) for i in v]) for k, v in _deserialize(__mapper__).iteritems()])
         return self.__func__.model_mapper_dict
 
     def _get_model(self, model_name, default=None):
@@ -107,9 +101,13 @@ class JSONSerializer(Serializer):
 if __name__ == "__main__":
     import types
     from lite_mms.basemain import app, db
-    from lite_mms import models
-    from functions import ModelFunction
+    from lite_mms import models, constants as c
+    from functions import ModelFunction, register_test_delete_func
+    from lite_mms.apis.order import OrderWrapper
 
+    register_test_delete_func(models.Order)(
+        lambda x: any(work_command.status == c.work_command.STATUS_FINISHED for work_command in
+                      OrderWrapper(x).work_command_list))
     func = ModelFunction(db.session)
     model_list = []
     for k, v in models.__dict__.items():

@@ -48,10 +48,9 @@ class ModelFunction(object):
                     for pro in loop.__mapper__.iterate_properties:
                         if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
                                         pro.local_remote_pairs[0][1] in class_.__table__.columns._all_cols:
-                            constraint = constants.MAY
-                            if not pro.local_remote_pairs[0][0].nullable:
-                                constraint = constants.SHOULD
-                            self.model_mapper_dict[class_].append((loop, pro, constraint))
+                            self.model_mapper_dict[class_].append((loop, pro,
+                                                                   constants.MAY if pro.local_remote_pairs[0][
+                                                                       0].nullable else constants.SHOULD))
         return self.model_mapper_dict[class_]
 
     @_raise_when_models_empty
@@ -76,15 +75,18 @@ class ModelFunction(object):
             其中判断obj是否可以删除，框架无法做到，需要obj本身或者是基于该obj的扩展类给出结果。
             因此需要该obj提供对应的方法。
         """
-        if self.get_delete_conditions(obj, True) == [] and self.test_delete(obj):
-            for child in self.get_children(obj):
-                self.delete_all(child)
-            try:
+        try:
+            if self.test_delete(obj):
+                conditions = self.get_delete_conditions(obj, True)
+                if conditions:
+                    raise ValueError(conditions)
+                for child in self.get_children(obj):
+                    self.delete_all(child)
                 self.delete(obj)
-            except:
-                raise
-        else:
-            raise ValueError(u"不能删除")
+            else:
+                raise ValueError(u"不能删除")
+        except:
+            raise
 
     def get_delete_conditions(self, obj, detail=False):
         """
@@ -110,9 +112,9 @@ class ModelFunction(object):
         func = ModelFunction.model_test_delete_funcs.get(obj.__class__)
         if func:
             try:
-                func(obj)
+                return func(obj)
             except TypeError:
-                func(func.im_class(obj))
+                return func(func.im_class(obj))
         else:
             return True
 
