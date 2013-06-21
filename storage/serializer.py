@@ -75,7 +75,19 @@ class JSONSerializer(Serializer):
                             result[k_model].append(i_model)
             return result
 
-        return _deserialize(__mapper__)
+        # self.__func__.model_mapper_dict = _deserialize(__mapper__) 这样的话，对应的Property不知道
+        def _get_property(parent_class, child_class):
+            for pro in child_class.__mapper__.iterate_properties:
+                if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
+                                pro.local_remote_pairs[0][1] in parent_class.__table__.columns._all_cols:
+                    return child_class, pro
+
+        self.__func__.model_mapper_dict = {}
+        for k, v in _deserialize(__mapper__).iteritems():
+            self.__func__.model_mapper_dict[k] = []
+            for i in v:
+                self.__func__.model_mapper_dict[k].append(_get_property(k, i))
+        return self.__func__.model_mapper_dict
 
     def _get_model(self, model_name, default=None):
         for model in self.__func__.registered_models:
@@ -102,3 +114,4 @@ if __name__ == "__main__":
     print serializer.deserialize_model(
         '{"Order": [{"SubOrder": [{"WorkCommand": [{"QIReport": [{"StoreBill": []}]}, {"QIReport": [{"StoreBill": ['
         ']}]}, {"Deduction": []}]}, {"StoreBill": []}]}]}')
+
