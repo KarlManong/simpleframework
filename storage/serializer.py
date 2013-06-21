@@ -117,15 +117,15 @@ if __name__ == "__main__":
     serializer = JSONSerializer(func)
     # print serializer.serialize_model(models.Order, True)
     print u"解析:"
-    print u"\t%s" % serializer.deserialize_model(
+    print u"\t{0:s}".format(serializer.deserialize_model(
         '{"Order": [{"SubOrder": [{"WorkCommand": [{"QIReport": [{"StoreBill": []}]}, {"QIReport": [{"StoreBill": ['
-        ']}]}, {"Deduction": []}]}, {"StoreBill": []}]}]}')
+        ']}]}, {"Deduction": []}]}, {"StoreBill": []}]}]}'))
     order = models.Order.query.filter_by(id=415).one()
-    print u"与%s相关的所有对象:" % unicode(order)
-    print u"\t%s" % func.get_all_derivatives(order)
+    print u"与{0:s}相关的所有对象:".format
+    print u"\t{0:s}".format(func.get_all_derivatives(order))
 
     # 当我想要删除order时：首先看它的删除条件
-    print u"删除%s的前提条件:" % unicode(order)
-    print u"\t%s" % func.get_delete_conditions(order, detail=True)
+    print u"删除{0:s}的前提条件:".format
+    print u"\t{0:s}".format(func.get_delete_conditions(order, detail=True))
     # 然后删除
     func.delete_all(order)
