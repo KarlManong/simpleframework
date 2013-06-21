@@ -1,10 +1,7 @@
 #-*- coding:utf-8 -*-
 import types
 from functools import wraps
-
-MUST = 1
-SHOULD = 2
-MAY = 3
+import constants
 
 
 def _raise_when_models_empty(func):
@@ -41,7 +38,7 @@ class ModelFunction(object):
         只能是one to many的， 相同的model只返回一次
         :param class_: the model class
         :type class_: types.TypeType
-        :return a list of model class
+        :return a list of model class: [(model, property, constraint(MAY, SHOULD, MUST))]
         """
         assert isinstance(class_, types.TypeType) and hasattr(class_, "_sa_class_manager")
         if class_ not in self.model_mapper_dict:
@@ -51,12 +48,15 @@ class ModelFunction(object):
                     for pro in loop.__mapper__.iterate_properties:
                         if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
                                         pro.local_remote_pairs[0][1] in class_.__table__.columns._all_cols:
-                            self.model_mapper_dict[class_].append((loop, pro))
+                            constraint = constants.MAY
+                            if not pro.local_remote_pairs[0][0].nullable:
+                                constraint = constants.SHOULD
+                            self.model_mapper_dict[class_].append((loop, pro, constraint))
         return self.model_mapper_dict[class_]
 
     @_raise_when_models_empty
     def get_children_generate(self, obj):
-        for model, pro in self.get_child_models(obj.__class__):
+        for model, pro, constraint in self.get_child_models(obj.__class__):
             for i in self.get_session(obj).query(model).filter(pro.class_attribute == obj):
                 yield i
 
@@ -84,7 +84,17 @@ class ModelFunction(object):
             except:
                 raise
         else:
-            raise ValueError(u"不能删除")
+            raise ValueError(self.get_delete_conditions(obj.__class__))
+
+    def get_delete_conditions(self, model_class):
+        def __delete_condition__(model_class):
+            conditions = []
+            for model, pro, con in self.get_child_models(model_class):
+                conditions.append(constants.constraints[con](model))
+                conditions.extend(__delete_condition__(model))
+            return conditions
+
+        return __delete_condition__(model_class)
 
     def test_delete(self, obj):
         """

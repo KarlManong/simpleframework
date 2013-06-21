@@ -4,6 +4,8 @@ try:
 except ImportError:
     import json
 
+import constants
+
 
 class Serializer(object):
     def serialize_model(self, *args, **kwargs):
@@ -80,7 +82,10 @@ class JSONSerializer(Serializer):
             for pro in child_class.__mapper__.iterate_properties:
                 if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
                                 pro.local_remote_pairs[0][1] in parent_class.__table__.columns._all_cols:
-                    return child_class, pro
+                    constraint = constants.MAY
+                    if not pro.local_remote_pairs[0][0].nullable:
+                        constraint = constants.SHOULD
+                    return child_class, pro, constraint
             else:
                 raise ValueError(u"关联错误%s: %s" % (parent_class.__name__, child_class.__name__))
 
@@ -119,3 +124,5 @@ if __name__ == "__main__":
     order = models.Order.query.filter_by(id=415).one()
     print func.get_all_derivatives(order)
 
+    # 当我想要删除order时：
+    func.delete_all(order)
