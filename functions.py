@@ -24,7 +24,6 @@ class ModelFunction(object):
         self.__session__ = session
         self.registered_models = []
         self.model_mapper_dict = {}
-        self.model_test_delete_funcs = ModelFunction.model_test_delete_funcs.copy()
 
     def register_model(self, model):
         if model not in self.registered_models:
@@ -138,3 +137,4 @@ if __name__ == "__main__":
             func.register_model(v)
     print func.get_child_models(models.Order)
     print func.get_children(order)
+    print func.model_mapper_dict

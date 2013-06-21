@@ -81,6 +81,8 @@ class JSONSerializer(Serializer):
                 if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
                                 pro.local_remote_pairs[0][1] in parent_class.__table__.columns._all_cols:
                     return child_class, pro
+            else:
+                raise ValueError(u"关联错误%s: %s" % (parent_class.__name__, child_class.__name__))
 
         self.__func__.model_mapper_dict = {}
         for k, v in _deserialize(__mapper__).iteritems():
@@ -114,4 +116,6 @@ if __name__ == "__main__":
     print serializer.deserialize_model(
         '{"Order": [{"SubOrder": [{"WorkCommand": [{"QIReport": [{"StoreBill": []}]}, {"QIReport": [{"StoreBill": ['
         ']}]}, {"Deduction": []}]}, {"StoreBill": []}]}]}')
+    order = models.Order.query.filter_by(id=415).one()
+    print func.get_all_derivatives(order)
 
