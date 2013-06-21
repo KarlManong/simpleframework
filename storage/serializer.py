@@ -86,8 +86,8 @@ class JSONSerializer(Serializer):
             else:
                 raise ValueError(u"关联错误%s: %s" % (parent_class.__name__, child_class.__name__))
 
-        self.__func__.model_mapper_dict = dict(
-            [(k, [_get_property(k, i) for i in v]) for k, v in _deserialize(__mapper__).iteritems()])
+        self.__func__.model_mapper_dict = {k: [_get_property(k, i) for i in v] for k, v in
+                                           _deserialize(__mapper__).iteritems()}
         return self.__func__.model_mapper_dict
 
     def _get_model(self, model_name, default=None):
