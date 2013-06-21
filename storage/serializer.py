@@ -118,11 +118,16 @@ if __name__ == "__main__":
     func.registered_models = model_list
     serializer = JSONSerializer(func)
     # print serializer.serialize_model(models.Order, True)
-    print serializer.deserialize_model(
+    print u"解析:"
+    print u"\t%s" % serializer.deserialize_model(
         '{"Order": [{"SubOrder": [{"WorkCommand": [{"QIReport": [{"StoreBill": []}]}, {"QIReport": [{"StoreBill": ['
         ']}]}, {"Deduction": []}]}, {"StoreBill": []}]}]}')
     order = models.Order.query.filter_by(id=415).one()
-    print func.get_all_derivatives(order)
+    print u"与%s相关的所有对象:" % unicode(order)
+    print u"\t%s" % func.get_all_derivatives(order)
 
-    # 当我想要删除order时：
+    # 当我想要删除order时：首先看它的删除条件
+    print u"删除%s的前提条件:" % unicode(order)
+    print u"\t%s" % func.get_delete_conditions(order, detail=True)
+    # 然后删除
     func.delete_all(order)

@@ -76,7 +76,7 @@ class ModelFunction(object):
             其中判断obj是否可以删除，框架无法做到，需要obj本身或者是基于该obj的扩展类给出结果。
             因此需要该obj提供对应的方法。
         """
-        if self.test_delete(obj):
+        if self.get_delete_conditions(obj, True) == [] and self.test_delete(obj):
             for child in self.get_children(obj):
                 self.delete_all(child)
             try:
@@ -84,17 +84,24 @@ class ModelFunction(object):
             except:
                 raise
         else:
-            raise ValueError(self.get_delete_conditions(obj.__class__))
+            raise ValueError(u"不能删除")
 
-    def get_delete_conditions(self, model_class):
-        def __delete_condition__(model_class):
+    def get_delete_conditions(self, obj, detail=False):
+        """
+        :param detail: whole children's children
+        """
+
+        def __delete_conditions__(obj):
             conditions = []
-            for model, pro, con in self.get_child_models(model_class):
-                conditions.append(constants.constraints[con](model))
-                conditions.extend(__delete_condition__(model))
+            for child in self.get_children(obj):
+                for model, prop, constraint in self.model_mapper_dict[obj.__class__]:
+                    if child.__class__ == model:
+                        conditions.append((child, constraint))
+                        if detail:
+                            conditions.extend(__delete_conditions__(child))
             return conditions
 
-        return __delete_condition__(model_class)
+        return __delete_conditions__(obj)
 
     def test_delete(self, obj):
         """
@@ -107,7 +114,7 @@ class ModelFunction(object):
             except TypeError:
                 func(func.im_class(obj))
         else:
-            return False
+            return True
 
     def delete(self, obj):
         session = self.get_session(obj)
