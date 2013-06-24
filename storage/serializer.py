@@ -116,7 +116,8 @@ if __name__ == "__main__":
     print u"解析:"
     print u"\t{0:s}".format(serializer.deserialize_model(
         '{"Deduction": [], "StoreBill": [], "WorkCommand": [["QIReport", 3], ["Deduction", 3]], '
-        '"SubOrder": ["WorkCommand", ["StoreBill", 3]], "QIReport": [["StoreBill", 3]], "Order": [["SubOrder", 1]]}'))
+        '"SubOrder": [["WorkCommand", 2], ["StoreBill", 3]], "QIReport": [["StoreBill", 3]], "Order": [["SubOrder", '
+        '1]]}'))
     order = models.Order.query.filter_by(id=415).one()
     print u"与{0:s}相关的所有对象:".format(order)
     print u"\t{0:s}".format(func.get_all_derivatives(order))
