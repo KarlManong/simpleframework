@@ -16,6 +16,7 @@ def _raise_when_models_empty(func):
 
 class ModelFunction(object):
     model_test_delete_funcs = {}
+    model_delete_permissions = {}
 
     def __init__(self, session=None):
         self.__session__ = session
@@ -51,6 +52,7 @@ class ModelFunction(object):
                             self.model_mapper_dict[class_].append((loop, pro,
                                                                    constants.MAY if pro.local_remote_pairs[0][
                                                                        0].nullable else constants.SHOULD))
+                            break
         return self.model_mapper_dict[class_]
 
     @_raise_when_models_empty
@@ -126,10 +128,29 @@ class ModelFunction(object):
         except:
             session.rollback()
 
+    def notify_delete_action(self, obj):
+
+        def _get_users(permission):
+            #TODO 伪实现
+            from lite_mms import models
+
+            return models.User.query.filter(models.User.id == 3).all()
+
+        def _notify(user, obj):
+            #TODO 伪实现
+            print u"请求删除{0:s}".format(str(obj))
+
+        for child, constrain in self.get_delete_conditions(obj, True):
+            if constrain < constants.MAY:
+                for k, v in self.model_delete_permissions.iteritems():
+                    if child.__class__.__name__ == k:
+                        for user in _get_users(v):
+                            _notify(user, child)
+
 
 def register_test_delete_func(class_):
     """
-    @:param class_: 这里应该是具体的class类
+    :param class_: 这里应该是具体的class类
     """
 
     def decorate(func):
@@ -142,6 +163,13 @@ def register_test_delete_func(class_):
         return f
 
     return decorate
+
+
+def register_delete_permissions():
+    #TODO 伪实现
+    from lite_mms.permissions import SchedulerPermission
+
+    ModelFunction.model_delete_permissions = {"WorkCommand": SchedulerPermission}
 
 
 if __name__ == "__main__":
