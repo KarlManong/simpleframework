@@ -171,6 +171,32 @@ class ModifyModelFunction(ModelFunction):
 
         return __model_relationships__(obj)
 
+    def modify(self, obj):
+        session = self.get_session(obj)
+        session.update(obj)
+        try:
+            session.commit()
+        except:
+            session.rollback()
+
+    @_raise_when_models_empty
+    def do_action(self, obj):
+        try:
+            if self.test_obj(obj):
+                conditions = self.get_conditions(obj, True)
+                if conditions:
+                    raise ValueError(conditions)
+                for child in self.get_children(obj):
+                    self.do_action(child)
+                self.modify(obj)
+            else:
+                raise ValueError(u"不能修改")
+        except:
+            raise
+
+    def _notify(self, obj, user):
+        print u"请求修改{}".format(str(obj))
+
 
 def register_test_delete_func(class_):
     """
