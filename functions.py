@@ -90,7 +90,7 @@ class ModelFunction(object):
     def _notify(self, obj, user):
         raise NotImplementedError
 
-    def notify_obj(self, obj):
+    def notify_user(self, obj):
         def _get_users(permission):
             #TODO 伪实现
             from lite_mms import models

@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     # 没有权限，则发送到有权限的人
     print u"通知："
-    print u"\t{0:s}".format(func.notify_obj(order))
+    print u"\t{0:s}".format(func.notify_user(order))
     # 等待对方操作
 
     # 然后删除
