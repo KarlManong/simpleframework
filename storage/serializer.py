@@ -77,8 +77,8 @@ class JSONSerializer(Serializer):
                 if hasattr(pro, "direction") and pro.direction.name == "MANYTOONE" and \
                                 pro.local_remote_pairs[0][1] in parent_class.__table__.columns._all_cols:
                     return child_class, pro, constraint if constraint is not None else (
-                    constants.MAY if pro.local_remote_pairs[0][
-                        0].nullable else constants.SHOULD)
+                        constants.MAY if pro.local_remote_pairs[0][
+                            0].nullable else constants.SHOULD)
             else:
                 raise ValueError(u"关联错误%s: %s" % (parent_class.__name__, child_class.__name__))
 
@@ -98,14 +98,14 @@ if __name__ == "__main__":
     import types
     from lite_mms.basemain import app, db
     from lite_mms import models, constants as c
-    from functions import ModelFunction, register_test_delete_func, register_delete_permissions
+    from functions import DeleteModelFunction, register_test_delete_func, register_delete_permissions
     from lite_mms.apis.order import OrderWrapper
 
     register_delete_permissions()
     register_test_delete_func(models.Order)(
         lambda x: any(work_command.status == c.work_command.STATUS_FINISHED for work_command in
                       OrderWrapper(x).work_command_list))
-    func = ModelFunction(db.session)
+    func = DeleteModelFunction(db.session)
     model_list = []
     for k, v in models.__dict__.items():
         if isinstance(v, types.TypeType) and issubclass(v, db.Model):
@@ -123,12 +123,12 @@ if __name__ == "__main__":
 
     # 当我想要删除order时：首先看它的删除条件
     print u"删除{0:s}的前提条件:".format(order)
-    print u"\t{0:s}".format(func.get_delete_conditions(order, detail=True))
+    print u"\t{0:s}".format(func.get_conditions(order, detail=True))
 
     # 没有权限，则发送到有权限的人
     print u"通知："
-    print u"\t{0:s}".format(func.notify_delete_action(order))
+    print u"\t{0:s}".format(func.notify_obj(order))
     # 等待对方操作
 
     # 然后删除
-    func.delete_all(order)
+    func.do_action(order)

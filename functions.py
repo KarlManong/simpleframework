@@ -15,8 +15,8 @@ def _raise_when_models_empty(func):
 
 
 class ModelFunction(object):
-    model_test_delete_funcs = {}
-    model_delete_permissions = {}
+    model_test_funcs = {}
+    model_permissions = {}
 
     def __init__(self, session=None):
         self.__session__ = session
@@ -69,49 +69,16 @@ class ModelFunction(object):
     def get_all_derivatives(self, obj):
         return [{child: self.get_all_derivatives(child)} for child in self.get_children_generate(obj)]
 
-    @_raise_when_models_empty
-    def delete_all(self, obj):
-        """
-        删除一个obj的规则为： 1、测试该obj是否可以删除，如果不能删除则抛出异常
-                           2、真正的删除该obj
-            其中判断obj是否可以删除，框架无法做到，需要obj本身或者是基于该obj的扩展类给出结果。
-            因此需要该obj提供对应的方法。
-        """
-        try:
-            if self.test_delete(obj):
-                conditions = self.get_delete_conditions(obj, True)
-                if conditions:
-                    raise ValueError(conditions)
-                for child in self.get_children(obj):
-                    self.delete_all(child)
-                self.delete(obj)
-            else:
-                raise ValueError(u"不能删除")
-        except:
-            raise
 
-    def get_delete_conditions(self, obj, detail=False):
+    def get_conditions(self, obj, detail):
         """
-        :param detail: whole children's children
+        :param obj: the object to be manager
+        :param detail: if detail is True, show all the generato
         """
+        raise NotImplementedError
 
-        def __delete_conditions__(obj):
-            conditions = []
-            for child in self.get_children(obj):
-                for model, prop, constraint in self.model_mapper_dict[obj.__class__]:
-                    if child.__class__ == model:
-                        conditions.append((child, constraint))
-                        if detail:
-                            conditions.extend(__delete_conditions__(child))
-            return conditions
-
-        return __delete_conditions__(obj)
-
-    def test_delete(self, obj):
-        """
-        从注册的方法中判断该obj是否可以删除
-        """
-        func = ModelFunction.model_test_delete_funcs.get(obj.__class__)
+    def test_obj(self, obj):
+        func = self.model_test_funcs.get(obj.__class__)
         if func:
             try:
                 return func(obj)
@@ -119,6 +86,42 @@ class ModelFunction(object):
                 return func(func.im_class(obj))
         else:
             return True
+
+    def _notify(self, obj, user):
+        raise NotImplementedError
+
+    def notify_obj(self, obj):
+        def _get_users(permission):
+            #TODO 伪实现
+            from lite_mms import models
+
+            return models.User.query.filter(models.User.id == 3).all()
+
+        for child, constrain in self.get_conditions(obj, True):
+            if constrain < constants.MAY:
+                for k, v in self.model_permissions.iteritems():
+                    if child.__class__.__name__ == k:
+                        for user in _get_users(v):
+                            self._notify(child, user)
+
+    @_raise_when_models_empty
+    def do_action(self, obj):
+        raise NotImplementedError
+
+
+class DeleteModelFunction(ModelFunction):
+    def get_conditions(self, obj, detail):
+        def __model_relationships__(obj):
+            conditions = []
+            for child in self.get_children(obj):
+                for model, prop, constraint in self.model_mapper_dict[obj.__class__]:
+                    if child.__class__ == model:
+                        conditions.append((child, constraint))
+                        if detail:
+                            conditions.extend(__model_relationships__(child))
+            return conditions
+
+        return __model_relationships__(obj)
 
     def delete(self, obj):
         session = self.get_session(obj)
@@ -128,24 +131,45 @@ class ModelFunction(object):
         except:
             session.rollback()
 
-    def notify_delete_action(self, obj):
+    def _notify(self, obj, user):
+        #TODO 伪实现
+        print u"请求删除{0:s}".format(str(obj))
 
-        def _get_users(permission):
-            #TODO 伪实现
-            from lite_mms import models
+    @_raise_when_models_empty
+    def do_action(self, obj):
+        """
+        删除一个obj的规则为： 1、测试该obj是否可以删除，如果不能删除则抛出异常
+                           2、真正的删除该obj
+            其中判断obj是否可以删除，框架无法做到，需要obj本身或者是基于该obj的扩展类给出结果。
+            因此需要该obj提供对应的方法。
+        """
+        try:
+            if self.test_obj(obj):
+                conditions = self.get_conditions(obj, True)
+                if conditions:
+                    raise ValueError(conditions)
+                for child in self.get_children(obj):
+                    self.do_action(child)
+                self.delete(obj)
+            else:
+                raise ValueError(u"不能删除")
+        except:
+            raise
 
-            return models.User.query.filter(models.User.id == 3).all()
 
-        def _notify(user, obj):
-            #TODO 伪实现
-            print u"请求删除{0:s}".format(str(obj))
+class ModifyModelFunction(ModelFunction):
+    def get_conditions(self, obj, detail):
+        def __model_relationships__(obj):
+            conditions = []
+            for child in self.get_children(obj):
+                for model, prop, constraint in self.model_mapper_dict[obj.__class__]:
+                    if child.__class__ == model:
+                        conditions.append((child, constraint))
+                        if detail:
+                            conditions.extend(__model_relationships__(child))
+            return conditions
 
-        for child, constrain in self.get_delete_conditions(obj, True):
-            if constrain < constants.MAY:
-                for k, v in self.model_delete_permissions.iteritems():
-                    if child.__class__.__name__ == k:
-                        for user in _get_users(v):
-                            _notify(user, child)
+        return __model_relationships__(obj)
 
 
 def register_test_delete_func(class_):
@@ -154,7 +178,7 @@ def register_test_delete_func(class_):
     """
 
     def decorate(func):
-        ModelFunction.model_test_delete_funcs[class_] = func
+        DeleteModelFunction.model_test_funcs[class_] = func
 
         @wraps(func)
         def f(*args, **kwargs):
@@ -169,7 +193,7 @@ def register_delete_permissions():
     #TODO 伪实现
     from lite_mms.permissions import SchedulerPermission
 
-    ModelFunction.model_delete_permissions = {"WorkCommand": SchedulerPermission}
+    DeleteModelFunction.model_permissions = {"WorkCommand": SchedulerPermission}
 
 
 if __name__ == "__main__":
